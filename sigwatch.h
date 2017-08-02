@@ -26,7 +26,6 @@
 #define SIGWATCH_H
 
 #include <QObject>
-#include <signal.h>
 
 class UnixSignalWatcherPrivate;
 

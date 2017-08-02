@@ -22,14 +22,20 @@
  * SOFTWARE.
  */
 
-#include <sys/socket.h>
-#include <unistd.h>
-#include <errno.h>
 #include <QMap>
 #include <QSocketNotifier>
-#include <QDebug>
+#include <QtDebug>
+
 #include "sigwatch.h"
 
+#define HAS_UNIX_SIGNALS (!Q_OS_WIN)
+
+#if HAS_UNIX_SIGNALS
+# include <signal.h>
+# include <sys/socket.h>
+# include <unistd.h>
+# include <errno.h>
+#endif 
 
 /*!
  * \brief The UnixSignalWatcherPrivate class implements the back-end signal
@@ -63,11 +69,13 @@ int UnixSignalWatcherPrivate::sockpair[2];
 UnixSignalWatcherPrivate::UnixSignalWatcherPrivate(UnixSignalWatcher *q) :
     q_ptr(q)
 {
+#if HAS_UNIX_SIGNALS
     // Create socket pair
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sockpair)) {
         qDebug() << "UnixSignalWatcher: socketpair: " << ::strerror(errno);
         return;
     }
+#endif
 
     // Create a notifier for the read end of the pair
     notifier = new QSocketNotifier(sockpair[1], QSocketNotifier::Read);
@@ -93,16 +101,18 @@ void UnixSignalWatcherPrivate::watchForSignal(int signal)
         return;
     }
 
+#if HAS_UNIX_SIGNALS
     // Register a sigaction which will write to the socket pair
     struct sigaction sigact;
     sigact.sa_handler = UnixSignalWatcherPrivate::signalHandler;
     sigact.sa_flags = 0;
-    ::sigemptyset(&sigact.sa_mask);
+    sigemptyset(&sigact.sa_mask);
     sigact.sa_flags |= SA_RESTART;
     if (::sigaction(signal, &sigact, NULL)) {
         qDebug() << "UnixSignalWatcher: sigaction: " << ::strerror(errno);
         return;
     }
+#endif
 
     watchedSignals.append(signal);
 }
